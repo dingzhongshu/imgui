@@ -1074,6 +1074,26 @@ void ImDrawList::PathArcTo(const ImVec2& center, float radius, float a_min, floa
     }
 }
 
+void ImDrawList::PathEllipticalArcTo(const ImVec2& center, float radius_x, float radius_y, float rot, float a_min, float a_max, int num_segments)
+{
+    _Path.reserve(_Path.Size + (num_segments + 1));
+
+    const float cosRot = ImCos(rot);
+    const float sinRot = ImSin(rot);
+    for (int i = 0; i <= num_segments; i++)
+    {
+        const float a = a_min + ((float)i / (float)num_segments) * (a_max - a_min);
+        ImVec2 point(center.x + ImCos(a) * radius_x, center.y + ImSin(a) * radius_y);
+        point.x -= center.x;
+        point.y -= center.y;
+        const float rel_x = (point.x * cosRot) - (point.y * sinRot);
+        const float rel_y = (point.x * sinRot) + (point.y * cosRot);
+        point.x = rel_x + center.x;
+        point.y = rel_y + center.y;
+        _Path.push_back(point);
+    }
+}
+
 ImVec2 ImBezierCubicCalc(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, float t)
 {
     float u = 1.0f - t;
@@ -1388,6 +1408,28 @@ void ImDrawList::AddBezierQuadratic(const ImVec2& p1, const ImVec2& p2, const Im
     PathLineTo(p1);
     PathBezierQuadraticCurveTo(p2, p3, num_segments);
     PathStroke(col, false, thickness);
+}
+
+void ImDrawList::AddEllipse(const ImVec2& center, float radius_x, float radius_y, ImU32 col, float rot, int num_segments, float thickness)
+{
+    if ((col & IM_COL32_A_MASK) == 0 || num_segments <= 2)
+        return;
+
+    // Because we are filling a closed shape we remove 1 from the count of segments/points
+    const float a_max = IM_PI * 2.0f * ((float)num_segments - 1.0f) / (float)num_segments;
+    PathEllipticalArcTo(center, radius_x, radius_y, rot, 0.0f, a_max, num_segments - 1);
+    PathStroke(col, true, thickness);
+}
+
+void ImDrawList::AddEllipseFilled(const ImVec2& center, float radius_x, float radius_y, ImU32 col, float rot, int num_segments)
+{
+    if ((col & IM_COL32_A_MASK) == 0 || num_segments <= 2)
+        return;
+
+    // Because we are filling a closed shape we remove 1 from the count of segments/points
+    const float a_max = IM_PI * 2.0f * ((float)num_segments - 1.0f) / (float)num_segments;
+    PathEllipticalArcTo(center, radius_x, radius_y, rot, 0.0f, a_max, num_segments - 1);
+    PathFillConvex(col);
 }
 
 void ImDrawList::AddText(const ImFont* font, float font_size, const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end, float wrap_width, const ImVec4* cpu_fine_clip_rect)
@@ -2878,6 +2920,41 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesVietnamese()
         0x01A0, 0x01A1,
         0x01AF, 0x01B0,
         0x1EA0, 0x1EF9,
+        0,
+    };
+    return &ranges[0];
+}
+
+const ImWchar* ImFontAtlas::GetGlyphRangesArabic()
+{
+    static const ImWchar ranges[] =
+    {
+        0x0020, 0x00FF, // Basic Latin
+        0x0600, 0x06FF, // Arabic
+        0x0750, 0x077F, // Arabic Supplement
+        0x08A0, 0x08FF, // Arabic Extended-A
+        0xFB50, 0xFDFF, // Arabic Presentation Forms-A
+        0xFE70, 0xFEFF, // Arabic Presentation Forms-B
+        0,
+    };
+    return &ranges[0];
+}
+
+const ImWchar* ImFontAtlas::GetGlyphRangesMix()
+{
+    static const ImWchar ranges[] =
+    {
+        0x0020, 0x00FF, // Basic Latin
+        0x0100, 0x017F, // Latin Extended-A
+        0x0180, 0x024F, // Latin Extended-B
+        0x0400, 0x052F, // Cyrillic + Cyrillic Supplement
+        0x0E00, 0x0E7F, // Thai
+        0x1E00, 0x1EFF, // Latin Extended Additional
+        0x2C60, 0x2C7F, // Latin Extended-C
+        0x2DE0, 0x2DFF, // Cyrillic Extended-A
+        0xA640, 0xA69F, // Cyrillic Extended-B
+        0xA720, 0xA7FF, // Latin Extended-D
+        0xAB30, 0xAB6F, // Latin Extended-E
         0,
     };
     return &ranges[0];
